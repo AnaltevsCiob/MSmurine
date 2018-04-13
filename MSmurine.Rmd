@@ -1,0 +1,190 @@
+---
+title: "MurineMS"
+output: html_document
+---
+
+##First we load some libraries
+```{r}
+library(phyloseq)
+library(phytools)
+library(ggplot2)
+library(dendextend)
+library(zCompositions)
+library(compositions)
+library(vegan)
+library(ALDEx2)
+```
+
+Then we separate otu table and taxonomy table that came together as a result of 
+Qiime processing; otu_table should be included in the repository, as well as sample metadata and tree
+---
+```{r}
+otu_table_HIT <- read.csv("~/Desktop/NTG17-060/HIT_rat/otu_table_HIT.csv")
+tax_raw_HIT <- otu_table_HIT[,12]
+rownames(otu_table_HIT)<- otu_table_HIT[,1]
+###
+tax_rat_HIT <- data.frame(OTU=rownames(otu_table_HIT), p=NA, c=NA, o=NA, f=NA, g=NA, s=NA)
+for (i in 1:length(tax_raw_HIT)){
+  tax_rat_HIT$p[i]<- unlist(strsplit(as.character(tax_raw_HIT[i]), ";"))[1]
+  tax_rat_HIT$c[i]<- unlist(strsplit(as.character(tax_raw_HIT[i]), ";"))[2]
+  tax_rat_HIT$o[i]<- unlist(strsplit(as.character(tax_raw_HIT[i]), ";"))[3]
+  tax_rat_HIT$f[i]<- unlist(strsplit(as.character(tax_raw_HIT[i]), ";"))[4]
+  tax_rat_HIT$g[i]<- unlist(strsplit(as.character(tax_raw_HIT[i]), ";"))[5]
+  tax_rat_HIT$s[i]<- unlist(strsplit(as.character(tax_raw_HIT[i]), ";"))[6]
+}
+row.names(tax_rat_HIT)<- tax_rat_HIT$OTU
+tax_rat_HIT <- tax_rat_HIT[,-1]
+tax_rat_HIT <- tax_table(tax_rat_HIT)
+#ovde imamo tax table
+row.names(tax_rat_HIT) <- rownames(otu_table_HIT)
+#
+otu_rat_HIT <- otu_table(otu_table_HIT[,-c(1,12)], taxa_are_rows=TRUE)
+head(otu_rat_HIT)
+```
+Next we import tree from HIT.db, and setup sample data, combining all into ##the phyloseq object
+here we should include path to the tree
+```{r}
+phy<-read.newick("/Volumes/backup/Ceca/Jan-2018-all/Desktop/HITdb-master/HITdb_v1.00/HITdb.tre")
+phy<-collapse.singles(phy)
+phy<-multi2di(phy)
+treRatHIT <-phy
+#tree imported
+if (min(phy$edge.length) == 0) { phy$edge.length = phy$edge.length + 0.00001 }
+###### now sample data
+qiimeMap <- read.delim("~/Desktop/NTG17-060/qiimeMap.txt")
+head(qiimeMap)
+qiimeRat <- qiimeMap[qiimeMap$Description=="rat",]
+rownames(qiimeRat) <- qiimeRat$SampleID
+sampleRat <- sample_data(qiimeRat)
+#######
+phyloRatHIT <- phyloseq(otu_rat_HIT, sampleRat, tax_rat_HIT, treRatHIT)
+summary(phyloRatHIT)
+class(phyloRatHIT)
+phyloRatHIT
+
+```
+
+## Now we are putting more metadata
+```{r}
+sample_data(phyloRatHIT)$AntibioticTreatment <- c("antibiotic-free","antibiotic","antibiotic","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic","antibiotic","antibiotic")
+sample_data(phyloRatHIT)$ChildTime <- c("razdvajanje","12.dpi","majke","31-35.dpi","majke", "12.dpi","0.dpi","razdvajanje","0.dpi","31-35.dpi")
+sample_data(phyloRatHIT)$ChildTime <- factor(sample_data(phyloRatHIT)$ChildTime, levels=c("majke", "razdvajanje", "0.dpi", "12.dpi", "31-35.dpi"))
+```
+## rarefying and plotting alpha diversity measures
+```{r}
+set.seed(123)
+alpha_meas = c("Shannon")
+phyloRatHITrar <- rarefy_even_depth(phyloRatHIT)
+sample_data(phyloRatHITrar)$time_point<-
+ifelse(sample_data(phyloRatHITrar)$ChildTime=="razdvoj", "-28 dpi", 
+                                  ifelse(sample_data(phyloRatHITrar)$ChildTime=="12dpi", "12 dpi",
+                                                        ifelse(sample_data(phyloRatHITrar)$ChildTime=="mother", "dams",
+                                                               ifelse(sample_data(phyloRatHITrar)$ChildTime=="3135dpi", "31-35 dpi",
+                                                                      ifelse(sample_data(phyloRatHITrar)$ChildTime=="3135dpi", "31-35 dpi",
+                                                                             ifelse(sample_data(phyloRatHITrar)$ChildTime=="0dpi", "0 dpi", NA))))))
+p <- plot_richness(phyloRatHITrar,"time_point","AntibioticTreatment", measures=alpha_meas)
+#some level ordering
+sample_data(phyloRatHITrar)$time_point <- factor(sample_data(phyloRatHITrar)$time_point, levels=c("dams", "-28 dpi","0 dpi","12 dpi", "31-35 dpi"))
+ggplot(p$data, aes(x=time_point, y=value, color=AntibioticTreatment, group=AntibioticTreatment))+geom_point(size=3)+geom_line(linetype=2, size=1.5)+theme_bw()+labs(x="", y="Shannon index")+theme(axis.text.x=element_text(size=18), axis.title.y=element_text(size=18))
+
+ggplot(p$data, aes(x=AntibioticTreatment, y=value, color=samples)) +geom_point(size=3)+geom_boxplot(data=p$data, aes(x=AntibioticTreatment, y=value, color=NULL), alpha=0.1)+theme_bw()+labs(x="", y="Shannon index")+theme(axis.text.x=element_text(size=18), axis.title.y=element_text(size=18))
+```
+##Next we do some ordination (unconstrained)
+```{r}
+uniRatHIT <- distance(phyloRatHITrar, "wunifrac")
+#
+PCoA.ratHIT <- ordinate(phyloRatHITrar, method="PCoA", distance=uniRatHIT)
+plot_scree(PCoA.ratHIT, "Scree plot for Rat data, UniFrac/PCoA")
+p12 <-plot_ordination(phyloRatHITrar, PCoA.ratHIT, axes=c(1, 2),"SampleID", color="AntibioticTreatment")+geom_point(size=5) + geom_path() + scale_colour_hue(guide = FALSE) 
+```
+##Now we use the same weighted unifrac distance to do the clustering
+```{r}
+rat.hclustHIT <- hclust(d=uniRatHIT, method="ward.D")
+rat.dendHIT <- as.dendrogram(rat.hclustHIT)
+###some label manipulation
+labels(rat.dendHIT)
+data.clust <- data.frame(sampleID = c("M8","M10","M1","M5","M9","M7","M6","M2","M4","M3"))
+data.clust$AntibioticTreatment <- sample_data(phyloRatHITrar)[as.character(data.clust$sampleID),"AntibioticTreatment"]
+data.clust$AntibCol <- ifelse(data.clust$AntibioticTreatment=="antibiotic-free", "deepskyblue2", "red1")
+data.clust$ChildTime <- sample_data(phyloRatHITrar)[as.character(data.clust$sampleID),"ChildTime"]
+labels(rat.dendHIT) <- data.clust$ChildTime
+labels_colors(rat.dendHIT)<- data.clust$AntibCol
+plot(rat.dendHIT)#this is the code for hierarchical clustering tree from the paper
+```
+##now exploratory phylogenetic tree
+```{r}
+RatHIT.imun <- subset_taxa(phyloRatHITrar, ta5 %in% c(" Peptococcus", " Peptoclostridium"," Parasutterella", " Collinsella", " Turicibacter"))
+plot_tree(RatHIT.imun, color="ChildTime", size="Abundance",shape="AntibioticTreatment", nodelabf=nodeplotblank, ladderize="left", base.spacing=0.04,label.tips="ta6" )
+#this is the piece of phylogenetic tree, from the paper
+```
+##Now we are entering the realm of compositional framework
+```{r}
+d.pro.HIT <- cmultRepl(t(otu_table(phyloRatHIT)), method="CZM", output="counts")
+#this is the way to account for zero counts
+d.pro.HIT <- t(d.pro.HIT)
+d.pro.HIT <- as.data.frame(d.pro.HIT)
+d.pro.HIT$genus <- tax_table(phyloRatHIT)[,"ta5"]
+#now aggregate, and do the clr transformation
+genusRatHIT <-aggregate(.~genus, data=d.pro.HIT[,1:11], sum)
+d.clr.abund.HIT <- t(apply(genusRatHIT[,-1], 2, function(x){log(x) - mean(log(x))}))
+colnames(d.clr.abund.HIT) <- genusRatHIT[,1]
+```
+###Now some constrained ordination, by antibiotic usage
+```{r}
+rda.part <- rda(d.clr.abund.HIT~AntibioticTreatment, data=data.frame(sample_data(phyloRatHIT)))
+##
+scor <- scores(rda.part, display=c("sp", "cn", "bp", "wa"), scaling=2)
+##
+numeric_centroids <- data.frame(scor$centroids)
+numeric_centroids$AntibioticTreatment <- c("antibiotic", "antibiotic-free")
+ggplot(numeric_centroids, aes(x=RDA1, y=PC1))+geom_text(aes(label=AntibioticTreatment))
+##
+species_centroids <- data.frame(scor$species)
+species_centroids$species_names <- rownames(species_centroids)
+##introducing criteria to avoid clutter in the middle of the plot
+species_centroids$kriterijum <- sqrt(species_centroids$RDA1^2+species_centroids$PC1^2)
+#
+index.spec <- species_centroids$kriterijum > 0.75
+species_centroids.over <- species_centroids[index.spec,]
+#
+site_scores <- data.frame(scor$sites)
+site_scores$ChildTime <- sample_data(phyloRatHIT)$ChildTime
+site_scores$SampleID <- sample_data(phyloRatHIT)$SampleID
+site_scores$AntibioticTreatment<- sample_data(phyloRatHIT)$AntibioticTreatment
+#
+df_ell.antib<- data.frame()
+veganCovEllipse <- function(cov, center=c(0,0), scale=1, npoints=100){
+  theta <- (0:npoints)*2*pi/npoints
+  Circle <- cbind(cos(theta), sin(theta))
+  t(center+scale*t(Circle%*%chol(cov)))
+}
+site_scores$AntibioticTreatment <- factor(site_scores$AntibioticTreatment)
+for (g in levels(site_scores$AntibioticTreatment)){
+  df_ell.antib<- rbind(df_ell.antib,cbind(as.data.frame(with(site_scores[site_scores$AntibioticTreatment==g,], veganCovEllipse(cov.wt(cbind(RDA1,PC1),wt=rep(1/length(RDA1), length(RDA1)))$cov, center=c(mean(RDA1), mean(PC1))))),AntibioticTreatment=g))}
+#
+RDA.plot.genus <-ggplot(site_scores, aes(x=RDA1, y=PC1))+geom_point(aes(colour=AntibioticTreatment, shape=AntibioticTreatment), size=5)+geom_path(data=df_ell.antib, aes(x=RDA1, y=PC1, group=AntibioticTreatment, colour=AntibioticTreatment), alpha=0.3, linetype=1)+
+  geom_segment(data=species_centroids.over, aes(x=0, xend=2*RDA1, y=0, yend=8.5*PC1), arrow=arrow(length=unit(0.25, "cm")), colour="grey4", alpha=0.4, linetype=2)+
+  geom_text(data=species_centroids.over, aes(x=2.5*RDA1, y=9.3*PC1,label=species_names), size=4, colour="black")+theme_bw()
+####formal testing
+anova(rda.part, by="terms")
+```
+#and now some testing with ALDEx
+```{r}
+d.aldex <- data.frame(otu_table(phyloRatHITrar))
+d.aldex$genus <- tax_table(phyloRatHITrar)[,"ta5"]
+index.NA.genus <- !is.na(d.aldex$genus)
+#removing taxa not annotated on genus level
+d.genus <- d.aldex[index.NA.genus,]
+genusRatHIT <-aggregate(.~genus, data=d.genus[,1:11], sum)
+rownames(genusRatHIT) <- genusRatHIT$genus
+##
+x <- aldex.clr(genusRatHIT[,2:11], mc.samples=128, verbose=TRUE)
+#calculating p value for each replicate
+x.t <- aldex.ttest(x, conds.aldex)
+x.e <- aldex.effect(x, conds.aldex, verbose=TRUE)
+x.all <- data.frame(x.e, x.t)
+sig <- which(x.all$wi.eBH <=0.05)
+```
+#No genus was found significantly associated with antibiotic usage
+
+
