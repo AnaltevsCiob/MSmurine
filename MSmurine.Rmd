@@ -15,12 +15,10 @@ library(compositions)
 library(vegan)
 library(ALDEx2)
 ```
-
 #Then we separate otu table and taxonomy table that came together as a result of 
 #Qiime processing; otu_table should be included in the repository, as well as sample metadata and tree
-
 ```{r}
-otu_table_HIT <- read.csv("~/Desktop/NTG17-060/HIT_rat/otu_table_HIT.csv")
+otu_table_HIT <- read.csv("data/otu_table_HIT.csv")
 tax_raw_HIT <- otu_table_HIT[,12]
 rownames(otu_table_HIT)<- otu_table_HIT[,1]
 ###
@@ -42,17 +40,17 @@ row.names(tax_rat_HIT) <- rownames(otu_table_HIT)
 otu_rat_HIT <- otu_table(otu_table_HIT[,-c(1,12)], taxa_are_rows=TRUE)
 head(otu_rat_HIT)
 ```
-#Next we import tree from HIT.db, and setup sample data, combining all into ##the phyloseq object
+#Next we import tree from HIT.db, and setup sample data, combining all into the phyloseq object
 #here we should include path to the tree
 ```{r}
-phy<-read.newick("/Volumes/backup/Ceca/Jan-2018-all/Desktop/HITdb-master/HITdb_v1.00/HITdb.tre")
+phy<-read.newick("data/HITdb.tre")
 phy<-collapse.singles(phy)
 phy<-multi2di(phy)
 treRatHIT <-phy
 #tree imported
 if (min(phy$edge.length) == 0) { phy$edge.length = phy$edge.length + 0.00001 }
 ###### now sample data
-qiimeMap <- read.delim("~/Desktop/NTG17-060/qiimeMap.txt")
+qiimeMap <- read.delim("data/qiimeMap.txt")
 head(qiimeMap)
 qiimeRat <- qiimeMap[qiimeMap$Description=="rat",]
 rownames(qiimeRat) <- qiimeRat$SampleID
@@ -100,7 +98,7 @@ p12 <-plot_ordination(phyloRatHITrar, PCoA.ratHIT, axes=c(1, 2),"SampleID", colo
 ```
 #Now we use the same weighted unifrac distance to do the clustering
 ```{r}
-rat.hclustHIT <- hclust(d=uniRatHIT, method="ward.D")
+rat.hclustHIT <- hclust(d=uniRatHIT,method="ward.D")
 rat.dendHIT <- as.dendrogram(rat.hclustHIT)
 ###some label manipulation
 labels(rat.dendHIT)
