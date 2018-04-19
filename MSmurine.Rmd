@@ -3,7 +3,8 @@ title: "MurineMS"
 output: html_document
 ---
 
-First we load some libraries
+#First we load some libraries
+
 ```{r}
 library(phyloseq)
 library(phytools)
@@ -15,9 +16,9 @@ library(vegan)
 library(ALDEx2)
 ```
 
-Then we separate otu table and taxonomy table that came together as a result of 
-Qiime processing; otu_table should be included in the repository, as well as sample metadata and tree
----
+#Then we separate otu table and taxonomy table that came together as a result of 
+#Qiime processing; otu_table should be included in the repository, as well as sample metadata and tree
+
 ```{r}
 otu_table_HIT <- read.csv("~/Desktop/NTG17-060/HIT_rat/otu_table_HIT.csv")
 tax_raw_HIT <- otu_table_HIT[,12]
@@ -35,14 +36,14 @@ for (i in 1:length(tax_raw_HIT)){
 row.names(tax_rat_HIT)<- tax_rat_HIT$OTU
 tax_rat_HIT <- tax_rat_HIT[,-1]
 tax_rat_HIT <- tax_table(tax_rat_HIT)
-#ovde imamo tax table
+#
 row.names(tax_rat_HIT) <- rownames(otu_table_HIT)
 #
 otu_rat_HIT <- otu_table(otu_table_HIT[,-c(1,12)], taxa_are_rows=TRUE)
 head(otu_rat_HIT)
 ```
-Next we import tree from HIT.db, and setup sample data, combining all into ##the phyloseq object
-here we should include path to the tree
+#Next we import tree from HIT.db, and setup sample data, combining all into ##the phyloseq object
+#here we should include path to the tree
 ```{r}
 phy<-read.newick("/Volumes/backup/Ceca/Jan-2018-all/Desktop/HITdb-master/HITdb_v1.00/HITdb.tre")
 phy<-collapse.singles(phy)
@@ -89,7 +90,7 @@ ggplot(p$data, aes(x=time_point, y=value, color=AntibioticTreatment, group=Antib
 
 ggplot(p$data, aes(x=AntibioticTreatment, y=value, color=samples)) +geom_point(size=3)+geom_boxplot(data=p$data, aes(x=AntibioticTreatment, y=value, color=NULL), alpha=0.1)+theme_bw()+labs(x="", y="Shannon index")+theme(axis.text.x=element_text(size=18), axis.title.y=element_text(size=18))
 ```
-##Next we do some ordination (unconstrained)
+#Next we do some ordination (unconstrained)
 ```{r}
 uniRatHIT <- distance(phyloRatHITrar, "wunifrac")
 #
@@ -97,7 +98,7 @@ PCoA.ratHIT <- ordinate(phyloRatHITrar, method="PCoA", distance=uniRatHIT)
 plot_scree(PCoA.ratHIT, "Scree plot for Rat data, UniFrac/PCoA")
 p12 <-plot_ordination(phyloRatHITrar, PCoA.ratHIT, axes=c(1, 2),"SampleID", color="AntibioticTreatment")+geom_point(size=5) + geom_path() + scale_colour_hue(guide = FALSE) 
 ```
-##Now we use the same weighted unifrac distance to do the clustering
+#Now we use the same weighted unifrac distance to do the clustering
 ```{r}
 rat.hclustHIT <- hclust(d=uniRatHIT, method="ward.D")
 rat.dendHIT <- as.dendrogram(rat.hclustHIT)
@@ -111,13 +112,13 @@ labels(rat.dendHIT) <- data.clust$ChildTime
 labels_colors(rat.dendHIT)<- data.clust$AntibCol
 plot(rat.dendHIT)#this is the code for hierarchical clustering tree from the paper
 ```
-##now exploratory phylogenetic tree
+#now exploratory phylogenetic tree
 ```{r}
 RatHIT.imun <- subset_taxa(phyloRatHITrar, ta5 %in% c(" Peptococcus", " Peptoclostridium"," Parasutterella", " Collinsella", " Turicibacter"))
 plot_tree(RatHIT.imun, color="ChildTime", size="Abundance",shape="AntibioticTreatment", nodelabf=nodeplotblank, ladderize="left", base.spacing=0.04,label.tips="ta6" )
 #this is the piece of phylogenetic tree, from the paper
 ```
-##Now we are entering the realm of compositional framework
+#Now we are entering the realm of compositional framework
 ```{r}
 d.pro.HIT <- cmultRepl(t(otu_table(phyloRatHIT)), method="CZM", output="counts")
 #this is the way to account for zero counts
@@ -129,7 +130,7 @@ genusRatHIT <-aggregate(.~genus, data=d.pro.HIT[,1:11], sum)
 d.clr.abund.HIT <- t(apply(genusRatHIT[,-1], 2, function(x){log(x) - mean(log(x))}))
 colnames(d.clr.abund.HIT) <- genusRatHIT[,1]
 ```
-###Now some constrained ordination, by antibiotic usage
+#Now some constrained ordination, by antibiotic usage
 ```{r}
 rda.part <- rda(d.clr.abund.HIT~AntibioticTreatment, data=data.frame(sample_data(phyloRatHIT)))
 ##
