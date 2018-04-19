@@ -3,7 +3,7 @@ title: "MurineMS"
 output: html_document
 ---
 
-##First we load some libraries
+First we load some libraries
 ```{r}
 library(phyloseq)
 library(phytools)
