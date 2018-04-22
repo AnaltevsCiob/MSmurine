@@ -66,8 +66,8 @@ phyloRatHIT
 ## Now we are putting more metadata
 ```{r}
 sample_data(phyloRatHIT)$AntibioticTreatment <- c("antibiotic-free","antibiotic","antibiotic","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic","antibiotic","antibiotic")
-sample_data(phyloRatHIT)$ChildTime <- c("razdvajanje","12.dpi","majke","31-35.dpi","majke", "12.dpi","0.dpi","razdvajanje","0.dpi","31-35.dpi")
-sample_data(phyloRatHIT)$ChildTime <- factor(sample_data(phyloRatHIT)$ChildTime, levels=c("majke", "razdvajanje", "0.dpi", "12.dpi", "31-35.dpi"))
+sample_data(phyloRatHIT)$ChildTime <- c("-28.dpi","12.dpi","dams","31-35.dpi","dams", "12.dpi","0.dpi","-28dpi","0.dpi","31-35.dpi")
+sample_data(phyloRatHIT)$ChildTime <- factor(sample_data(phyloRatHIT)$ChildTime, levels=c("dams", "-28.dpi", "0.dpi", "12.dpi", "31-35.dpi"))
 ```
 ## rarefying and plotting alpha diversity measures
 ```{r}
@@ -84,7 +84,6 @@ ifelse(sample_data(phyloRatHITrar)$ChildTime=="razdvoj", "-28 dpi",
 p <- plot_richness(phyloRatHITrar,"time_point","AntibioticTreatment", measures=alpha_meas)
 #some level ordering
 sample_data(phyloRatHITrar)$time_point <- factor(sample_data(phyloRatHITrar)$time_point, levels=c("dams", "-28 dpi","0 dpi","12 dpi", "31-35 dpi"))
-ggplot(p$data, aes(x=time_point, y=value, color=AntibioticTreatment, group=AntibioticTreatment))+geom_point(size=3)+geom_line(linetype=2, size=1.5)+theme_bw()+labs(x="", y="Shannon index")+theme(axis.text.x=element_text(size=18), axis.title.y=element_text(size=18))
 
 ggplot(p$data, aes(x=AntibioticTreatment, y=value, color=samples)) +geom_point(size=3)+geom_boxplot(data=p$data, aes(x=AntibioticTreatment, y=value, color=NULL), alpha=0.1)+theme_bw()+labs(x="", y="Shannon index")+theme(axis.text.x=element_text(size=18), axis.title.y=element_text(size=18))
 ```
@@ -98,7 +97,7 @@ p12 <-plot_ordination(phyloRatHITrar, PCoA.ratHIT, axes=c(1, 2),"SampleID", colo
 ```
 #Now we use the same weighted unifrac distance to do the clustering
 ```{r}
-rat.hclustHIT <- hclust(d=uniRatHIT,method="ward.D")
+rat.hclustHIT<-hclust(d=uniRatHIT,method="ward.D")
 rat.dendHIT <- as.dendrogram(rat.hclustHIT)
 ###some label manipulation
 labels(rat.dendHIT)
@@ -106,7 +105,8 @@ data.clust <- data.frame(sampleID = c("M8","M10","M1","M5","M9","M7","M6","M2","
 data.clust$AntibioticTreatment <- sample_data(phyloRatHITrar)[as.character(data.clust$sampleID),"AntibioticTreatment"]
 data.clust$AntibCol <- ifelse(data.clust$AntibioticTreatment=="antibiotic-free", "deepskyblue2", "red1")
 data.clust$ChildTime <- sample_data(phyloRatHITrar)[as.character(data.clust$sampleID),"ChildTime"]
-labels(rat.dendHIT) <- data.clust$ChildTime
+#labels(rat.dendHIT) <- data.clust$ChildTime
+labels(rat.dendHIT) <- c("dams", "-28.dpi", "0.dpi", "  31-35.dpi","-28.dpi", "dams","31-35.dpi", "0.dpi","12.dpi", "12.dpi")
 labels_colors(rat.dendHIT)<- data.clust$AntibCol
 plot(rat.dendHIT)#this is the code for hierarchical clustering tree from the paper
 ```
@@ -136,7 +136,7 @@ scor <- scores(rda.part, display=c("sp", "cn", "bp", "wa"), scaling=2)
 ##
 numeric_centroids <- data.frame(scor$centroids)
 numeric_centroids$AntibioticTreatment <- c("antibiotic", "antibiotic-free")
-ggplot(numeric_centroids, aes(x=RDA1, y=PC1))+geom_text(aes(label=AntibioticTreatment))
+#ggplot(numeric_centroids, aes(x=RDA1, y=PC1))+geom_text(aes(label=AntibioticTreatment))
 ##
 species_centroids <- data.frame(scor$species)
 species_centroids$species_names <- rownames(species_centroids)
@@ -164,6 +164,7 @@ for (g in levels(site_scores$AntibioticTreatment)){
 RDA.plot.genus <-ggplot(site_scores, aes(x=RDA1, y=PC1))+geom_point(aes(colour=AntibioticTreatment, shape=AntibioticTreatment), size=5)+geom_path(data=df_ell.antib, aes(x=RDA1, y=PC1, group=AntibioticTreatment, colour=AntibioticTreatment), alpha=0.3, linetype=1)+
   geom_segment(data=species_centroids.over, aes(x=0, xend=2*RDA1, y=0, yend=8.5*PC1), arrow=arrow(length=unit(0.25, "cm")), colour="grey4", alpha=0.4, linetype=2)+
   geom_text(data=species_centroids.over, aes(x=2.5*RDA1, y=9.3*PC1,label=species_names), size=4, colour="black")+theme_bw()
+RDA.plot.genus
 ####formal testing
 anova(rda.part, by="terms")
 ```
@@ -177,7 +178,8 @@ d.genus <- d.aldex[index.NA.genus,]
 genusRatHIT <-aggregate(.~genus, data=d.genus[,1:11], sum)
 rownames(genusRatHIT) <- genusRatHIT$genus
 ##
-x <- aldex.clr(genusRatHIT[,2:11], mc.samples=128, verbose=TRUE)
+conds.aldex <- c("antibiotic-free","antibiotic","antibiotic-free","antibiotic","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic","antibiotic","antibiotic")
+x <- aldex.clr(genusRatHIT[,2:11], conds.aldex,mc.samples=128, verbose=TRUE)
 #calculating p value for each replicate
 x.t <- aldex.ttest(x, conds.aldex)
 x.e <- aldex.effect(x, conds.aldex, verbose=TRUE)
