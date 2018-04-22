@@ -2,8 +2,7 @@
 title: "MurineMS"
 output: html_document
 ---
-
-#First we load some libraries
+First we load required libraries
 
 ```{r}
 library(phyloseq)
@@ -15,8 +14,9 @@ library(compositions)
 library(vegan)
 library(ALDEx2)
 ```
-#Then we separate otu table and taxonomy table that came together as a result of 
-#Qiime processing; otu_table should be included in the repository, as well as sample metadata and tree
+
+Then we separate otu table and taxonomy table that came together as a result of Qiime processing; otu_table is included in the repository, as well as sample metadata and tree
+
 ```{r}
 otu_table_HIT <- read.csv("data/otu_table_HIT.csv")
 tax_raw_HIT <- otu_table_HIT[,12]
@@ -40,8 +40,9 @@ row.names(tax_rat_HIT) <- rownames(otu_table_HIT)
 otu_rat_HIT <- otu_table(otu_table_HIT[,-c(1,12)], taxa_are_rows=TRUE)
 head(otu_rat_HIT)
 ```
-#Next we import tree from HIT.db, and setup sample data, combining all into the phyloseq object
-#here we should include path to the tree
+ 
+combining all into the phyloseq object
+
 ```{r}
 phy<-read.newick("data/HITdb.tre")
 phy<-collapse.singles(phy)
@@ -63,13 +64,16 @@ phyloRatHIT
 
 ```
 
-## Now we are putting more metadata
+ more metadata
+ 
 ```{r}
 sample_data(phyloRatHIT)$AntibioticTreatment <- c("antibiotic-free","antibiotic","antibiotic","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic-free","antibiotic","antibiotic","antibiotic")
 sample_data(phyloRatHIT)$ChildTime <- c("-28.dpi","12.dpi","dams","31-35.dpi","dams", "12.dpi","0.dpi","-28dpi","0.dpi","31-35.dpi")
 sample_data(phyloRatHIT)$ChildTime <- factor(sample_data(phyloRatHIT)$ChildTime, levels=c("dams", "-28.dpi", "0.dpi", "12.dpi", "31-35.dpi"))
 ```
-## rarefying and plotting alpha diversity measures
+
+...rarefying and plotting alpha diversity measure
+
 ```{r}
 set.seed(123)
 alpha_meas = c("Shannon")
@@ -87,15 +91,19 @@ sample_data(phyloRatHITrar)$time_point <- factor(sample_data(phyloRatHITrar)$tim
 
 ggplot(p$data, aes(x=AntibioticTreatment, y=value, color=samples)) +geom_point(size=3)+geom_boxplot(data=p$data, aes(x=AntibioticTreatment, y=value, color=NULL), alpha=0.1)+theme_bw()+labs(x="", y="Shannon index")+theme(axis.text.x=element_text(size=18), axis.title.y=element_text(size=18))
 ```
-#Next we do some ordination (unconstrained)
+
+Next we do some ordination (unconstrained)
+
 ```{r}
 uniRatHIT <- distance(phyloRatHITrar, "wunifrac")
 #
 PCoA.ratHIT <- ordinate(phyloRatHITrar, method="PCoA", distance=uniRatHIT)
 plot_scree(PCoA.ratHIT, "Scree plot for Rat data, UniFrac/PCoA")
 p12 <-plot_ordination(phyloRatHITrar, PCoA.ratHIT, axes=c(1, 2),"SampleID", color="AntibioticTreatment")+geom_point(size=5) + geom_path() + scale_colour_hue(guide = FALSE) 
+p12
 ```
-#Now we use the same weighted unifrac distance to do the clustering
+Now we use the same weighted unifrac distance to do the clustering
+
 ```{r}
 rat.hclustHIT<-hclust(d=uniRatHIT,method="ward.D")
 rat.dendHIT <- as.dendrogram(rat.hclustHIT)
@@ -108,18 +116,24 @@ data.clust$ChildTime <- sample_data(phyloRatHITrar)[as.character(data.clust$samp
 #labels(rat.dendHIT) <- data.clust$ChildTime
 labels(rat.dendHIT) <- c("dams", "-28.dpi", "0.dpi", "  31-35.dpi","-28.dpi", "dams","31-35.dpi", "0.dpi","12.dpi", "12.dpi")
 labels_colors(rat.dendHIT)<- data.clust$AntibCol
-plot(rat.dendHIT)#this is the code for hierarchical clustering tree from the paper
+plot(rat.dendHIT)
+#this is the code for hierarchical clustering tree from the paper
 ```
-#now exploratory phylogenetic tree
+
+now exploratory phylogenetic tree
+
 ```{r}
 RatHIT.imun <- subset_taxa(phyloRatHITrar, ta5 %in% c(" Peptococcus", " Peptoclostridium"," Parasutterella", " Collinsella", " Turicibacter"))
 plot_tree(RatHIT.imun, color="ChildTime", size="Abundance",shape="AntibioticTreatment", nodelabf=nodeplotblank, ladderize="left", base.spacing=0.04,label.tips="ta6" )
-#this is the piece of phylogenetic tree, from the paper
+
+#this is the part of phylogenetic tree, from the paper
 ```
-#Now we are entering the realm of compositional framework
+
+Now we are entering the realm of compositional data analysis framework
+
 ```{r}
 d.pro.HIT <- cmultRepl(t(otu_table(phyloRatHIT)), method="CZM", output="counts")
-#this is the way to account for zero counts
+# accounting  for zero counts
 d.pro.HIT <- t(d.pro.HIT)
 d.pro.HIT <- as.data.frame(d.pro.HIT)
 d.pro.HIT$genus <- tax_table(phyloRatHIT)[,"ta5"]
@@ -128,7 +142,8 @@ genusRatHIT <-aggregate(.~genus, data=d.pro.HIT[,1:11], sum)
 d.clr.abund.HIT <- t(apply(genusRatHIT[,-1], 2, function(x){log(x) - mean(log(x))}))
 colnames(d.clr.abund.HIT) <- genusRatHIT[,1]
 ```
-#Now some constrained ordination, by antibiotic usage
+ constrained ordination, by antibiotic usage
+ 
 ```{r}
 rda.part <- rda(d.clr.abund.HIT~AntibioticTreatment, data=data.frame(sample_data(phyloRatHIT)))
 ##
@@ -165,10 +180,13 @@ RDA.plot.genus <-ggplot(site_scores, aes(x=RDA1, y=PC1))+geom_point(aes(colour=A
   geom_segment(data=species_centroids.over, aes(x=0, xend=2*RDA1, y=0, yend=8.5*PC1), arrow=arrow(length=unit(0.25, "cm")), colour="grey4", alpha=0.4, linetype=2)+
   geom_text(data=species_centroids.over, aes(x=2.5*RDA1, y=9.3*PC1,label=species_names), size=4, colour="black")+theme_bw()
 RDA.plot.genus
-####formal testing
+#this is the RDA plot from paper
+#### now formal testing
 anova(rda.part, by="terms")
 ```
-#and now some testing with ALDEx
+
+and now  testing with ALDEx
+
 ```{r}
 d.aldex <- data.frame(otu_table(phyloRatHITrar))
 d.aldex$genus <- tax_table(phyloRatHITrar)[,"ta5"]
@@ -185,7 +203,8 @@ x.t <- aldex.ttest(x, conds.aldex)
 x.e <- aldex.effect(x, conds.aldex, verbose=TRUE)
 x.all <- data.frame(x.e, x.t)
 sig <- which(x.all$wi.eBH <=0.05)
+sig
 ```
-#No genus was found significantly associated with antibiotic usage
+..no genus was found significantly associated with antibiotic usage
 
 
